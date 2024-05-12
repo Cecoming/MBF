@@ -144,8 +144,8 @@ class build_transformer(nn.Module):
             view_num = 0
 
         #########################evit##################################
-        drop_loc = (3, 6, 9)    # hyper-parameters
-        base_keep_rate = 0.8    # hyper-parameters
+        drop_loc = ()    # hyper-parameters
+        base_keep_rate = 1   # hyper-parameters
 
         self.base = factory[cfg.MODEL.TRANSFORMER_TYPE](img_size=cfg.INPUT.SIZE_TRAIN, sie_xishu=cfg.MODEL.SIE_COE,
                                                         camera=camera_num, view=view_num, stride_size=cfg.MODEL.STRIDE_SIZE, drop_path_rate=cfg.MODEL.DROP_PATH,
@@ -185,27 +185,40 @@ class build_transformer(nn.Module):
         self.bottleneck.bias.requires_grad_(False)
         self.bottleneck.apply(weights_init_kaiming)
 
+        self.classifier_middle = nn.Linear(self.in_planes, self.num_classes, bias=False)
+        self.classifier_middle.apply(weights_init_classifier)
+        self.bottleneck_middle = nn.BatchNorm1d(self.in_planes)
+        self.bottleneck_middle.bias.requires_grad_(False)
+        self.bottleneck_middle.apply(weights_init_kaiming)
+
     def forward(self, x, label=None, cam_label= None, view_label=None, keep_rate=None, get_idx=False):
         if not get_idx:
-            global_feat = self.base(x, cam_label=cam_label, view_label=view_label, keep_rate=keep_rate)  # (b, 768
+            [feat_middle, global_feat] = self.base(x, cam_label=cam_label, view_label=view_label, keep_rate=keep_rate)  # (b, 768
         else:
-            global_feat, idx = self.base(x, cam_label=cam_label, view_label=view_label, keep_rate=keep_rate, get_idx=get_idx)
+            [feat_middle, global_feat], idx = self.base(x, cam_label=cam_label, view_label=view_label, keep_rate=keep_rate, get_idx=get_idx)
+
 
         feat = self.bottleneck(global_feat)
+        feat_middle = self.bottleneck_middle(feat_middle)
 
         if self.training:
             if self.ID_LOSS_TYPE in ('arcface', 'cosface', 'amsoftmax', 'circle'):
                 cls_score = self.classifier(feat, label)
             else:
                 cls_score = self.classifier(feat)
+                cls_middle_score = self.classifier_middle(feat_middle)
 
-            return cls_score, global_feat  # global feature for triplet loss
+            if not get_idx:
+                return [cls_score,cls_middle_score], global_feat  # global feature for triplet loss
+            else:
+                return [cls_score,cls_middle_score], global_feat, idx  # global feature for triplet loss
         else:
             if self.neck_feat == 'after':
                 # print("Test with feature after BN")
                 return feat
             else:
                 # print("Test with feature before BN")
+                # TODO:add feat_middle
                 if get_idx:
                     return global_feat, idx
                 else:

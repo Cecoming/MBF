@@ -184,10 +184,16 @@ class HumanParsingNet():
 
         return block_mode
     
-    def visualization_batch(self, iter_index, img, image_part_mask, masked_imgs):  # visualization for test
+    def visualization_batch(self, iter_index, img, image_part_mask, masked_imgs, eimage_part_mask, path='./visualization0.8'):  # visualization for test
         if img.shape[0] < 64:
             print('batch' + str(iter_index+1) +'\'s size is small than 64, skip visualization.')
             return
+
+        # 检查路径是否存在
+        if not os.path.exists(path):
+            # 如果路径不存在，则创建
+            os.makedirs(path)
+
         ##1. image
         # 假设 img 是一个形状为 [B, 3, 256, 128] 的张量
         # 使用 torchvision.utils.make_grid 将图片拼接成一张大图, nrow 参数设置每行的图片数量
@@ -199,7 +205,7 @@ class HumanParsingNet():
         # 将 numpy 数组转换为 PIL 图片
         grid_img_pil = Image.fromarray(grid_img.astype('uint8'))
         # 保存图片
-        grid_img_pil.save('./visualization/batch'+str(iter_index+1)+'_images.png')
+        grid_img_pil.save(path + '/batch'+str(iter_index+1)+'_images.png')
 
         ##2. part mask
         image_part_mask = image_part_mask.unsqueeze(dim=1)
@@ -210,7 +216,7 @@ class HumanParsingNet():
         grid_mask = Image.fromarray(grid_mask.astype('uint8'))
         palette = get_palette(256)
         grid_mask.putpalette(palette)
-        grid_mask.save('./visualization/batch'+str(iter_index+1)+'_masks.png')
+        grid_mask.save(path + '/batch'+str(iter_index+1)+'_masks.png')
 
         ##3. emaskd image
         masked_grid_img = torchvision.utils.make_grid(masked_imgs, nrow=8)
@@ -221,18 +227,18 @@ class HumanParsingNet():
         # 将 numpy 数组转换为 PIL 图片
         masked_grid_img_pil = Image.fromarray(masked_grid_img.astype('uint8'))
         # 保存图片
-        masked_grid_img_pil.save('./visualization/batch'+str(iter_index+1)+'_eimages.png')
+        masked_grid_img_pil.save(path + '/batch'+str(iter_index+1)+'_eimages.png')
 
-        # # 4. emaskd image1
-        # masked_grid_img1 = torchvision.utils.make_grid(masked_imgs1, nrow=8)
-        # # 将张量转换为 numpy 数组，并调整通道的顺序
-        # masked_grid_img1 = masked_grid_img1.cpu().numpy().transpose(1, 2, 0)
-        # # 将 numpy 数组的值范围从 [-1, 1] 调整为 [0, 255]
-        # masked_grid_img1 = (masked_grid_img1 + 1) / 2 * 255
-        # # 将 numpy 数组转换为 PIL 图片
-        # masked_grid_img_pil1 = Image.fromarray(masked_grid_img1.astype('uint8'))
-        # # 保存图片
-        # masked_grid_img_pil1.save('./visualization/batch'+str(iter_index+1)+'_eimages_masks.png')
+        # 4. emaskd image1
+        eimage_part_mask = eimage_part_mask.unsqueeze(dim=1)
+        e_grid_mask = torchvision.utils.make_grid(eimage_part_mask, nrow=8)
+        e_grid_mask = e_grid_mask.cpu().numpy()[0]
+
+        # 将 numpy 数组转换为 PIL 图片
+        e_grid_mask = Image.fromarray(e_grid_mask.astype('uint8'))
+        e_palette = get_palette(256)
+        e_grid_mask.putpalette(e_palette)
+        e_grid_mask.save(path + '/batch'+str(iter_index+1)+'_eimages_masks.png')
 
 
 

@@ -477,14 +477,24 @@ class TransReID(nn.Module):
 
         left_tokens = []
         idxs = []
+        middle_layer = 10
+        result = []
+        
         for i, blk in enumerate(self.blocks):
             x, left_token, idx = blk(x, keep_rate[i], get_idx)
             left_tokens.append(left_token)
             if idx is not None:
                 idxs.append(idx)
+            if middle_layer is not None and i == middle_layer:
+                _x = self.norm(x)
+                result.append(_x[:, 0])
         x = self.norm(x)
+        result.append(x[:, 0])
         #if self.dist_token is None:
-        return x[:, 0], left_tokens, idxs
+        # return x[:, 0], left_tokens, idxs
+
+        return result, left_tokens, idxs
+
         # else:
         #     return x[:, 0], x[:, 1], idxs
 

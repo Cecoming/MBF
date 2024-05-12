@@ -1,0 +1,64 @@
+base_line:
+2024-05-09 14:01:15,812 transreid.train INFO: mAP: 54.7%, Rank-1  :61.8%
+-----------------------------------------------------------------------------------
+drop_loc = (9)
+base_keep_rate:0.8
+2024-05-11 02:42:09,619 transreid.train INFO: mAP: 54.3%, Rank-1  :61.0%
+
+drop_loc = (10)
+base_keep_rate:0.8
+2024-05-11 02:36:16,462 transreid.train INFO: mAP: 54.4%, Rank-1  :61.9%
+
+drop_loc = (10)
+base_keep_rate:0.7
+2024-05-11 02:25:10,287 transreid.train INFO: mAP: 54.1%, Rank-1  :61.0%
+-----------------------------------------------------------------------------------
+drop_loc = (9, 10)    # hyper-parameters
+base_keep_rate = 0.9    # hyper-parameters
+middle_layer = 10 ID+TRIPLET
+2024-05-11 14:03:41,815 transreid.train INFO: mAP: 54.2%, Rank-1  :62.1%
+
+drop_loc = (,)    # hyper-parameters
+base_keep_rate = 1    # hyper-parameters
+middle_layer = 10 ID+TRIPLET
+2024-05-11 14:25:44,204 transreid.train INFO: mAP: 53.1%, Rank-1  :59.9%
+
+drop_loc = (10)    # hyper-parameters
+base_keep_rate = 0.8    # hyper-parameters
+middle_layer = 10 ID+TRIPLET
+2024-05-11 14:55:02,994 transreid.train INFO: mAP: 54.5%, Rank-1  :61.5%
+------------------------------------------------------------------------------------
+drop_loc = (9, 10)    # hyper-parameters
+base_keep_rate = 0.9    # hyper-parameters
+middle_layer = 10 TRIPLET
+2024-05-11 16:57:46,765 transreid.train INFO: mAP: 52.6%, Rank-1  :59.9%
+
+drop_loc = (,)    # hyper-parameters
+base_keep_rate = 1    # hyper-parameters
+middle_layer = 10 TRIPLET
+2024-05-11 18:40:50,249 transreid.train INFO: mAP: 53.9%, Rank-1  :62.1%
+
+drop_loc = (10)    # hyper-parameters
+base_keep_rate = 0.8    # hyper-parameters
+middle_layer = 10 TRIPLET
+2024-05-11 17:20:17,229 transreid.train INFO: mAP: 52.7%, Rank-1  :60.3%
+
+drop_loc = (10)    # hyper-parameters
+base_keep_rate = 0.7    # hyper-parameters
+middle_layer = 10 TRIPLET
+2024-05-11 19:11:01,489 transreid.train INFO: mAP: 53.5%, Rank-1  :60.2%
+------------------------------------------------------------------------------------
+drop_loc = (,)    # hyper-parameters
+base_keep_rate = 1    # hyper-parameters
+middle_layer = 10 ID
+2024-05-11 21:48:26,771 transreid.train INFO: mAP: 55.0%, Rank-1  :62.6%
+
+drop_loc = (10)    # hyper-parameters
+base_keep_rate = 0.8    # hyper-parameters
+middle_layer = 10 ID
+2024-05-11 21:32:32,594 transreid.train INFO: mAP: 55.0%, Rank-1  :62.3%
+
+drop_loc = (10)    # hyper-parameters
+base_keep_rate = 0.7    # hyper-parameters
+middle_layer = 10 ID
+2024-05-11 21:49:10,074 transreid.train INFO: mAP: 54.7%, Rank-1  :62.0%

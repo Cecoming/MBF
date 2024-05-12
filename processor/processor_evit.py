@@ -31,11 +31,17 @@ def do_train(cfg,
     logger = logging.getLogger("transreid.train")
     logger.info('start training')
     _LOCAL_PROCESS_GROUP = None
+
+    segment_model = HumanParsingNet(cfg)
+
     if device:
         model.to(local_rank)
+        segment_model.to(local_rank)
         if torch.cuda.device_count() > 1 and cfg.MODEL.DIST_TRAIN:
             print('Using {} GPUs for training'.format(torch.cuda.device_count()))
-            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], find_unused_parameters=True)
+            segment_model.make_parallel()
+            model = nn.DataParallel(model)
+            # model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], find_unused_parameters=True)
 
     loss_meter = AverageMeter()
     acc_meter = AverageMeter()
@@ -59,7 +65,24 @@ def do_train(cfg,
             target_view = target_view.to(device)
             # -----------------change start------------------
             with amp.autocast(enabled=True):
-                score, feat = model(img, target, cam_label=target_cam, view_label=target_view )
+                score, feat, idxs = model(img, target, cam_label=target_cam, view_label=target_view, get_idx=True)
+                # if epoch == epochs and n_iter < 10:
+                if n_iter < 0:
+                    masked_imgs = mask(img, patch_size=cfg.MODEL.STRIDE_SIZE[0], idx=idxs[len(idxs)-1])
+
+                    block_size = (cfg.MODEL.STRIDE_SIZE[0], cfg.MODEL.STRIDE_SIZE[1])
+                    K=4
+                    image_part_mask = segment_model.get_batch_part_masks(img)    #[B, 256, 128]
+                    image_part_mask = torch.from_numpy(image_part_mask).to(device)    #[B, 256, 128]
+                    # To adapt to the shape of image features
+                    image_part_mask_fixed = segment_model.custom_maxtimes_downsample(image_part_mask, K, block_size)    #[B, 256//STRIDE_SIZE[0], 128//STRIDE_SIZE[1]]
+
+                    eimage_part_mask = segment_model.get_batch_part_masks(masked_imgs)    #[B, 256, 128]
+                    eimage_part_mask = torch.from_numpy(eimage_part_mask).to(device)    #[B, 256, 128]
+                    # To adapt to the shape of image features
+                    eimage_part_mask_fixed = segment_model.custom_maxtimes_downsample(eimage_part_mask, K, block_size)    #[B, 256//STRIDE_SIZE[0], 128//STRIDE_SIZE[1]]
+                    segment_model.visualization_batch(n_iter, img, image_part_mask_fixed, masked_imgs, eimage_part_mask_fixed)  # visualization
+
                 loss = loss_fn(score, feat, target, target_cam)
 
             scaler.scale(loss).backward()
@@ -171,7 +194,6 @@ def do_inference(cfg,
             feat, idxs = model(img, cam_label=camids, view_label=target_view, get_idx=True)
 
             if n_iter < 10:
-                feat, idxs = model(img, cam_label=camids, view_label=target_view, get_idx=True)
                 masked_imgs = mask(img, patch_size=cfg.MODEL.STRIDE_SIZE[0], idx=idxs[2])
 
                 block_size = (cfg.MODEL.STRIDE_SIZE[0], cfg.MODEL.STRIDE_SIZE[1])
