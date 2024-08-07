@@ -65,11 +65,11 @@ def mask(x, idx, patch_size):
         out_img: masked image with only patches from idx postions
     """
     h = x.size(2) // patch_size
-    x = rearrange(x, 'b c (h p) (w q) -> b (c p q) (h w)', p=patch_size, q=patch_size)
-    output = torch.zeros_like(x)
-    idx1 = idx.unsqueeze(1).expand(-1, x.size(1), -1)
-    extracted = torch.gather(x, dim=2, index=idx1)  # [b, c p q, T]
-    scattered = torch.scatter(output, dim=2, index=idx1, src=extracted)
+    x = rearrange(x, 'b c (h p) (w q) -> b (c p q) (h w)', p=patch_size, q=patch_size)  # [64, 768, 128]
+    output = torch.zeros_like(x) - 1 # for non-mask black   # [64, 768, 128]
+    idx1 = idx.unsqueeze(1).expand(-1, x.size(1), -1)       # [64, 768, 103]
+    extracted = torch.gather(x, dim=2, index=idx1)  # [b, c p q, T], # [64, 768, 103], 从x中提取idx1指定的元素
+    scattered = torch.scatter(output, dim=2, index=idx1, src=extracted) # [64, 768, 128], 将 extracted 中的元素放回output中idx1指定的位置，得到scattered
     out_img = rearrange(scattered, 'b (c p q) (h w) -> b c (h p) (w q)', p=patch_size, q=patch_size, h=h)
     return out_img
 

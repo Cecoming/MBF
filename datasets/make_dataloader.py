@@ -3,7 +3,8 @@ import torchvision.transforms as T
 from torch.utils.data import DataLoader
 
 from .bases import ImageDataset
-from timm.data.random_erasing import RandomErasing
+from .bases import ImageDatasetWithOriAndMask
+from utils.random_erasing import RandomErasing
 from .sampler import RandomIdentitySampler
 from .dukemtmcreid import DukeMTMCreID
 from .market1501 import Market1501
@@ -28,11 +29,11 @@ def train_collate_fn(batch):
     """
     # collate_fn这个函数的输入就是一个list，list的长度是一个batch size，list中的每个元素都是__getitem__得到的结果
     """
-    imgs, pids, camids, viewids , _ = zip(*batch)
+    imgs_ori, imgs, masks, pids, camids, viewids , _ = zip(*batch)
     pids = torch.tensor(pids, dtype=torch.int64)
     viewids = torch.tensor(viewids, dtype=torch.int64)
     camids = torch.tensor(camids, dtype=torch.int64)
-    return torch.stack(imgs, dim=0), pids, camids, viewids,
+    return torch.stack(imgs_ori, dim=0), torch.stack(imgs, dim=0), masks, pids, camids, viewids
 
 def val_collate_fn(batch):
     imgs, pids, camids, viewids, img_paths = zip(*batch)
@@ -41,34 +42,38 @@ def val_collate_fn(batch):
     return torch.stack(imgs, dim=0), pids, camids, camids_batch, viewids, img_paths
 
 def make_dataloader(cfg):
-    train_transforms = T.Compose([
-            T.Resize(cfg.INPUT.SIZE_TRAIN, interpolation=3),
-            T.RandomHorizontalFlip(p=cfg.INPUT.PROB),
-            T.Pad(cfg.INPUT.PADDING),
-            T.RandomCrop(cfg.INPUT.SIZE_TRAIN),
-            T.ToTensor(),
-            T.Normalize(mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD),
-            RandomErasing(probability=cfg.INPUT.RE_PROB, mode='pixel', max_count=1, device='cpu'),
-            # RandomErasing(probability=cfg.INPUT.RE_PROB, mean=cfg.INPUT.PIXEL_MEAN)
-        ])
-
+    if cfg.DATASETS.NAMES == 'occ_reid':
+        train_transforms_ori = T.Compose([
+                        T.Resize(cfg.INPUT.SIZE_TRAIN, interpolation=3),
+                        T.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.2, hue=0.2), # Release this part when training for the Occluded-REID
+                        #T.RandomHorizontalFlip(p=cfg.INPUT.PROB),
+                        T.Pad(cfg.INPUT.PADDING),
+                        T.RandomCrop(cfg.INPUT.SIZE_TRAIN),
+                        T.ToTensor(),
+                        T.Normalize(mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD)
+                    ])
+    else:
+        train_transforms_ori = T.Compose([
+                        T.Resize(cfg.INPUT.SIZE_TRAIN, interpolation=3),
+                        #T.RandomHorizontalFlip(p=cfg.INPUT.PROB),
+                        T.Pad(cfg.INPUT.PADDING),
+                        T.RandomCrop(cfg.INPUT.SIZE_TRAIN),
+                        T.ToTensor(),
+                        T.Normalize(mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD)
+                    ])
     val_transforms = T.Compose([
         T.Resize(cfg.INPUT.SIZE_TEST),
         T.ToTensor(),
         T.Normalize(mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD)
-            # T.Resize(cfg.INPUT.SIZE_TRAIN, interpolation=3),
-            # #T.RandomHorizontalFlip(p=cfg.INPUT.PROB),
-            # T.Pad(cfg.INPUT.PADDING),
-            # T.RandomCrop(cfg.INPUT.SIZE_TRAIN),
-            # T.ToTensor(),
-            # T.Normalize(mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD),
     ])
 
     num_workers = cfg.DATALOADER.NUM_WORKERS
 
     dataset = __factory[cfg.DATASETS.NAMES](root=cfg.DATASETS.ROOT_DIR)
+    f_size = ((cfg.INPUT.SIZE_TRAIN[0]-16)//cfg.MODEL.STRIDE_SIZE[0]+1, (cfg.INPUT.SIZE_TRAIN[1]-16)//cfg.MODEL.STRIDE_SIZE[1]+1)
 
-    train_set = ImageDataset(dataset.train, train_transforms)
+    train_transforms_erasing = RandomErasing(probability=cfg.INPUT.RE_PROB, mode='pixel', max_count=1, device='cpu')
+    train_set = ImageDatasetWithOriAndMask(dataset.train, transform_ori=train_transforms_ori, transform=train_transforms_erasing)
     train_set_normal = ImageDataset(dataset.train, val_transforms)
     num_classes = dataset.num_train_pids
     cam_num = dataset.num_train_cams

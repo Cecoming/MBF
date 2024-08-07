@@ -6,11 +6,11 @@ print('num_gpu:', torch.cuda.device_count())
 
 from utils.logger import setup_logger
 from datasets import make_dataloader
-from model.make_model_evit import make_model
+from MFER.model.make_model_mfer import make_model
 from solver import make_optimizer
 from solver.scheduler_factory import create_scheduler
 from loss import make_loss
-from processor import do_train
+from MFER.processor.processor_mfer import do_train
 import random
 import torch
 import numpy as np
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     if cfg.MODEL.DIST_TRAIN:
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
 
-    # os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID
+    os.environ['CUDA_VISIBLE_DEVICES'] = cfg.MODEL.DEVICE_ID
     train_loader, train_loader_normal, val_loader, num_query, num_classes, camera_num, view_num = make_dataloader(cfg)
 
     model = make_model(cfg, num_class=num_classes, camera_num=camera_num, view_num = view_num)
@@ -90,11 +90,11 @@ if __name__ == '__main__':
     do_train(
         cfg,
         model,
-        center_criterion,
+        # center_criterion,
         train_loader,
         val_loader,
         optimizer,
-        optimizer_center,
+        # optimizer_center,
         scheduler,
         loss_func,
         num_query, args.local_rank

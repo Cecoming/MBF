@@ -68,6 +68,17 @@ _C.MODEL.SIE_COE = 3.0
 _C.MODEL.SIE_CAMERA = False
 _C.MODEL.SIE_VIEW = False
 
+# effective radio of the image
+_C.MODEL.EFFECTIVE_RADIO = 0.7
+_C.MODEL.BETA = 0.5
+
+# decoder 
+_C.MODEL.NUM_HEAD=8
+_C.MODEL.DECODER_DROP_RATE=0.1
+_C.MODEL.DROP_FIRST=False
+_C.MODEL.NUM_DECODER_LAYER=2
+_C.MODEL.QUERY_NUM=4
+
 # -----------------------------------------------------------------------------
 # INPUT
 # -----------------------------------------------------------------------------
@@ -199,3 +210,4 @@ _C.HUMAN_PARSING.EXTRA = CN(new_allowed=True)
 _C.HUMAN_PARSING.MODEL_FILE = ''
 _C.HUMAN_PARSING.IMAGE_SIZE = [2048, 1024]  # width * height
 _C.HUMAN_PARSING.NUM_CLASSES = 10
+

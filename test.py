@@ -1,10 +1,10 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 from config import cfg
 import argparse
 from datasets import make_dataloader
 from model.make_model_evit import make_model
-from processor.processor_evit import do_inference
+from processor.processor_evit_part import do_inference
 from utils.logger import setup_logger
 
 
