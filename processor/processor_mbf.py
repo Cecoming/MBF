@@ -8,10 +8,8 @@ from utils.metrics import R1_mAP_eval
 from torch.cuda import amp
 import torch.distributed as dist
 
-from utils.visualize_mask import mask as getmask
 from model.human_parsing_net import HumanParsingNet
 from loss.part_mask_loss import KLabelSmoothedCrossEntropyLoss
-from utils.visualization import create_heatmap_image
 from utils.get_occ_img import find_diff_id_images, cover_pixels
 
 
@@ -38,8 +36,6 @@ def do_train(cfg,
     _LOCAL_PROCESS_GROUP = None
 
     segment_model = HumanParsingNet(cfg)
-    
-    
     if device:
         model.to(local_rank)
         segment_model.to(local_rank)
@@ -58,21 +54,11 @@ def do_train(cfg,
     stride_size = cfg.MODEL.STRIDE_SIZE[0]
     K=4
     get_idx = True
-    use_mask_filter = True
-    use_visible_matrx = False
-    use_back_argu = False
-
     logger.info('stride_size = {}'.format(stride_size))
-    logger.info('use_visible_matrx = {}'.format(use_visible_matrx))
-    logger.info('use_mask_filter = {}'.format(use_mask_filter))
-    logger.info('get_idx = {}'.format(get_idx))
-    logger.info('use_back_argu = {}'.format(use_back_argu))
     logger.info('class_weights = {}'.format(class_weights))
 
-    evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM, use_visible_matrx=use_visible_matrx, feature_dim=768)
+    evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM, feature_dim=768)
     scaler = amp.GradScaler()
-
-    top = [0, 0, 0]
 
     # train
     for epoch in range(1, epochs + 1):
@@ -88,35 +74,28 @@ def do_train(cfg,
             # optimizer_center.zero_grad()
             img = img.to(device)
             img_occ = img_occ.to(device)
-            # o_mask = o_mask.to(device)
             target = vid.to(device)
             target_cam = target_cam.to(device)
             target_view = target_view.to(device)
             # -----------------change start------------------
-            with amp.autocast(enabled=True):                                     
-                h_score, h_feat, h_patch_cls_score, h_idxs, loss_orth_h, feat_patch_h, h_attn, h_attns = model(img, target, cam_label=target_cam, view_label=target_view,
+            with amp.autocast(enabled=True):
+                h_score, h_feat, h_patch_cls_score, h_idxs, loss_orth_h, feat_patch_h = model(img, target, cam_label=target_cam, view_label=target_view,
                                                                                 get_idx=get_idx, f_size=f_size, is_occ=False)
-                                                                                
                 ################from segment model get part masks
                 # 1. holistic image part mask
                 with torch.no_grad():
                     h_image_part_mask_ = segment_model.get_batch_part_masks(img)
                     h_image_part_mask_ = torch.from_numpy(h_image_part_mask_).to(device)    #[B, H, W]
                     h_image_part_mask = segment_model.custom_maxfrequent_downsample(h_image_part_mask_, K, stride_size)
-                    if use_mask_filter:
-                        # occluded patch mask
-                        idx = h_idxs[0]  # shape: [B, T]
-                        mask_ = torch.zeros_like(h_image_part_mask)  # shape: [B, fH, fW]
-                        mask_ = mask_.view(mask_.shape[0], -1)  # shape: [B, fH*fW]
-                        mask_.scatter_(1, idx, 1)   # 将掩码中idx索引位置的值设置为1
-                        mask_ = mask_.view(mask_.shape[0], h_image_part_mask.shape[1], h_image_part_mask.shape[2])
-                        # 5. 将image_part_mask与掩码相乘
-                        h_image_part_mask = h_image_part_mask * mask_
-                    ### for visualization2
-                    if stride_size == 16 and (epoch > 1 and epoch < 6 or epoch % 20 == 0)and n_iter == 0:
-                        h_patch_part_score_copy = h_patch_cls_score.detach().clone()    #[B, K, fH, fW]
-                        create_heatmap_image(img, h_patch_part_score_copy, n_iter, epoch, cfg.OUTPUT_DIR, is_occ=False, attn=h_attn , attns=h_attns)
-                        del h_patch_part_score_copy
+
+                    # occluded patch mask
+                    idx = h_idxs[0]  # shape: [B, T]
+                    mask_ = torch.zeros_like(h_image_part_mask)  # shape: [B, fH, fW]
+                    mask_ = mask_.view(mask_.shape[0], -1)  # shape: [B, fH*fW]
+                    mask_.scatter_(1, idx, 1)   # 将掩码中idx索引位置的值设置为1
+                    mask_ = mask_.view(mask_.shape[0], h_image_part_mask.shape[1], h_image_part_mask.shape[2])
+                    # 5. 将image_part_mask与掩码相乘
+                    h_image_part_mask = h_image_part_mask * mask_
 
                 loss_seg_h = segment_loss(h_patch_cls_score,  h_image_part_mask) 
                 loss_reid_h = loss_fn(h_score, h_feat, target, target_cam)
@@ -124,8 +103,7 @@ def do_train(cfg,
                 ####################################################################################
                 # 2. occluded image part mask
                 random_indices, img_other = find_diff_id_images(img)
-                img_other_idx = h_idxs[0][random_indices]  # shape: [B, T]
-                img_occ_person, covered_idx = cover_pixels(img_occ, img_other, h_image_part_mask_[random_indices], h_image_part_mask[random_indices], beta=cfg.MODEL.BETA, stride_size=cfg.MODEL.STRIDE_SIZE, patch_size=16, img_other_idx=img_other_idx)
+                img_occ_person, covered_idx = cover_pixels(img_occ, img_other, h_image_part_mask_[random_indices], h_image_part_mask[random_indices], beta=cfg.MODEL.BETA, stride_size=cfg.MODEL.STRIDE_SIZE, patch_size=16)
 
                 del img_other, random_indices
 
@@ -141,37 +119,30 @@ def do_train(cfg,
                 image_part_mask = image_part_mask * covered_mask
 
 
-                score, feat, de_score, de_feat, patch_cls_score, idxs, loss_orth_o, feat_patch_o, o_attn, o_attns = model(img_occ_person, target, cam_label=target_cam, view_label=target_view,
+                score, feat, de_score, de_feat, patch_cls_score, idxs, loss_orth_o, feat_patch_o = model(img_occ_person, target, cam_label=target_cam, view_label=target_view,
                                                                                       get_idx=get_idx, f_size=f_size, is_occ=True)
                 with torch.no_grad():
-                    if use_mask_filter:
-                        # occluded patch mask
-                        idx = idxs[0]  # shape: [B, T]
-                        mask_ = torch.zeros_like(image_part_mask)  # shape: [B, fH, fW]
-                        mask_ = mask_.view(mask_.shape[0], -1)  # shape: [B, fH*fW]
-                        mask_.scatter_(1, idx, 1)   # 将掩码中idx索引位置的值设置为1
-                        mask_ = mask_.view(mask_.shape[0], image_part_mask.shape[1], image_part_mask.shape[2])
-                        # 5. 将image_part_mask与掩码相乘
-                        image_part_mask = image_part_mask * mask_
-                    ### for visualization
-                    if stride_size == 16 and (epoch >1 and epoch < 6 or epoch % 20 == 0) and n_iter == 0:
-                        patch_part_score_copy = patch_cls_score.detach().clone()    #[B, K, fH, fW]
-                        create_heatmap_image(img_occ_person, patch_part_score_copy, n_iter, epoch, cfg.OUTPUT_DIR, attn=o_attn, attns=o_attns)
-                        masked_imgs = getmask(img_occ_person, patch_size=16, idx=idxs[0])
-                        segment_model.visualization_batch(n_iter, img_occ_person, masked_imgs, image_part_mask, cfg.OUTPUT_DIR)  # visualization
-                        del patch_part_score_copy, masked_imgs
+                    # occluded patch mask
+                    idx = idxs[0]  # shape: [B, T]
+                    mask_ = torch.zeros_like(image_part_mask)  # shape: [B, fH, fW]
+                    mask_ = mask_.view(mask_.shape[0], -1)  # shape: [B, fH*fW]
+                    mask_.scatter_(1, idx, 1)   # 将掩码中idx索引位置的值设置为1
+                    mask_ = mask_.view(mask_.shape[0], image_part_mask.shape[1], image_part_mask.shape[2])
+                    # 5. 将image_part_mask与掩码相乘
+                    image_part_mask = image_part_mask * mask_
 
 
                 loss_seg_o = segment_loss(patch_cls_score,  image_part_mask) 
                 loss_reid_o = loss_fn(score, feat, target, target_cam)
                 loss_reid_o_de = loss_fn(de_score, de_feat, target, target_cam, de=True)
 
+
                 mse_loss = nn.MSELoss()
                 loss_mse = mse_loss(feat_patch_h, feat_patch_o)
 
                 loss_orth = (loss_orth_h + loss_orth_o)
                 loss_seg = loss_seg_h + loss_seg_o
-                loss = loss_reid_h + loss_reid_o + loss_seg+ loss_orth + loss_reid_o_de + loss_mse
+                loss = loss_reid_h + loss_reid_o + loss_seg + loss_reid_o_de + loss_orth + loss_mse
 
             
             scaler.scale(loss).backward()
@@ -220,15 +191,9 @@ def do_train(cfg,
                             img = img.to(device)
                             camids = camids.to(device)
                             target_view = target_view.to(device)
-                            if use_visible_matrx:
-                                feat, vis = model(img, cam_label=camids, view_label=target_view, get_idx=get_idx)
-                                evaluator.update((feat, vid, camid, vis))
-                            else:
-                                feat = model(img, cam_label=camids, view_label=target_view, get_idx=get_idx)
-                                evaluator.update((feat, vid, camid))
+                            feat, vis = model(img, cam_label=camids, view_label=target_view, get_idx=get_idx)
+                            evaluator.update((feat, vid, camid, vis))
                     cmc, mAP, _, _, _, _, _ = evaluator.compute()
-                    if mAP > top[1]:
-                        top[1] = mAP; top[0] = epoch; top[2] = cmc[0]
                     logger.info("Validation Results - Epoch: {}".format(epoch))
                     logger.info("mAP: {:.1%}".format(mAP))
                     for r in [1, 5, 10]:
@@ -241,15 +206,9 @@ def do_train(cfg,
                         img = img.to(device)
                         camids = camids.to(device)
                         target_view = target_view.to(device)
-                        if use_visible_matrx:
-                            feat, vis = model(img, cam_label=camids, view_label=target_view, get_idx=get_idx, f_size=f_size)
-                            evaluator.update((feat, vid, camid, vis))
-                        else:
-                            feat = model(img, cam_label=camids, view_label=target_view, get_idx=get_idx, f_size=f_size)
-                            evaluator.update((feat, vid, camid))
+                        feat = model(img, cam_label=camids, view_label=target_view, get_idx=get_idx, f_size=f_size)
+                        evaluator.update((feat, vid, camid))
                 cmc, mAP, _, _, _, _, _ = evaluator.compute()
-                if mAP >= top[1] and cmc[0]>=top[2]:
-                    top[1] = mAP; top[0] = epoch; top[2] = cmc[0]
                 logger.info("Validation Results - Epoch: {}".format(epoch))
                 logger.info("mAP: {:.1%}".format(mAP))
                 for r in [1, 5, 10]:
@@ -265,8 +224,7 @@ def do_inference(cfg,
     device = "cuda"
     logger = logging.getLogger("transreid.test")
     logger.info("Enter inferencing")
-    use_visible_matrx = False
-    evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM, use_visible_matrx=use_visible_matrx)
+    evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM)
 
     evaluator.reset()
     if device:
@@ -284,7 +242,6 @@ def do_inference(cfg,
             img = img.to(device)
             camids = camids.to(device)
             target_view = target_view.to(device)
-
             feat = model(img, cam_label=camids, view_label=target_view, get_idx=get_idx, f_size=f_size)
             evaluator.update((feat, pid, camid))
 

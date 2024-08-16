@@ -692,7 +692,7 @@ def resize_pos_embed(posemb, posemb_new, hight, width):
     posemb = torch.cat([posemb_token, posemb_grid], dim=1)
     return posemb
 
-def vit_base_patch16_224_ETransReID(img_size=(256, 128), stride_size=16, drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.1, camera=0, view=0,local_feature=False,sie_xishu=1.5,base_keep_rate=0.8, drop_loc=(3, 6, 9), **kwargs):
+def vit_base_patch16_224_MBF(img_size=(256, 128), stride_size=16, drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.1, camera=0, view=0,local_feature=False,sie_xishu=1.5,base_keep_rate=0.8, drop_loc=(3, 6, 9), **kwargs):
     keep_rate = [1] * 12
     for loc in drop_loc:
         keep_rate[loc] = base_keep_rate

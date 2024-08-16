@@ -1,28 +1,18 @@
 ![Python >=3.8](https://img.shields.io/badge/Python->=3.8-yellow.svg)
 ![PyTorch >=2.0](https://img.shields.io/badge/PyTorch->=2.0-blue.svg)
 
-## **MFER: Mask-Guided Feature Extraction and Recovery Network for Occluded Person Re-identification**
+## **MBF: Mask-Guided Background Augmentation and Foreground Extraction Network for Occluded Person Re-identification**
+
+Code of paper "Mask-Guided Background Augmentation and Foreground Extraction Network for Occluded Person Re-identification"
 
 ## Pipeline
-![framework](figs/MFER_pipeline.png)
-
+![framework](figs/MBF_pipeline.png)
+![details in MG](figs/BA.png)
 ## Requirements
 
-### Environment
-We use conda to create our environment.
+### Installation
 ```bash
-conda create -n reid python=3.8
-conda activate reid
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
-pip install yacs
-pip install timm
-pip install scikit-image
-pip install tqdm
-pip install ftfy
-pip install regex
-pip install opencv-python
-pip install einops
-pip install matplotlib
+pip install -r requirement.txt
 ```
 
 ### Prepare Datasets
@@ -31,12 +21,27 @@ pip install matplotlib
 mkdir datasets
 ```
 
-Download the person datasets [Occluded-Duke](https://github.com/lightas/Occluded-DukeMTMC-Dataset). Then unzip it and rename it under the directory.
+Download the person datasets [Market-1501](https://drive.google.com/file/d/0B8-rUzbwVRk0c054eEozWG9COHM/view), [DukeMTMC-reID](https://arxiv.org/abs/1609.01775),[Occluded-Duke](https://github.com/lightas/Occluded-DukeMTMC-Dataset).
+Then unzip them and rename them under the directory like
+
+```
+datasets
+├── market1501
+│   └── images ..
+├── DukeMTMC-reID
+│   └── images ..
+├── Occluded_Duke
+│   └── images ..
+└── Occluded_REID
+    └── images ..
+```
+Then unzip them and rename them under the directory.
 
 
-### Prepare ViT and Human Parsing Net Pre-trained Model
+### Prepare ViT Pre-trained Model and Human Parsing Network Weight
 
-You need to download the ImageNet pretrained transformer model : [ViT-Base](https://github.com/rwightman/pytorch-image-models/releases/download/v0.1-vitjx/jx_vit_base_p16_224-80ecf9dd.pth)
+You need to download the ImageNet pretrained transformer model and human parsing model: [pre_weights](https://drive.google.com/drive/folders/1BWx5m0bEf7dFYbk_jUoUBYk-aQ9hsWP1?usp=drive_link)
+Then rename their pathes in 'MODEL.PRETRAIN_PATH' and 'HUMAN_PARSING.MODEL_FILE'.
 
 ## Training
 
@@ -44,25 +49,44 @@ We utilize single RTX V100 GPU for training. You can directly train with followi
 
 ```bash
 
-# OCC_Duke
-python train.py --config_file configs/OCC_Duke/mfer.yml MODEL.DEVICE_ID "('0')"
+# Training on Occluded-Duke
+python train.py --config_file configs/OCC_Duke/mbf.yml MODEL.DEVICE_ID "('2')"
 # smaller stride
-python train.py --config_file configs/OCC_Duke/mfer_stride.yml MODEL.DEVICE_ID "('0')"
-```
+python train.py --config_file configs/OCC_Duke/mbf_stride.yml MODEL.DEVICE_ID "('2')"
 
+# Training on Occluded-ReID
+python train.py --config_file configs/OCC_reid/mbf.yml MODEL.DEVICE_ID "('2')"
+# smaller stride
+python train.py --config_file configs/OCC_reid/mbf_stride.yml MODEL.DEVICE_ID "('2')"
+
+# Training on Market-1501
+python train.py --config_file configs/Market/mbf.yml MODEL.DEVICE_ID "('2')"
+# smaller stride
+python train.py --config_file configs/Market/mbf_stride.yml MODEL.DEVICE_ID "('2')"
+
+# Training on DukeMTMC-reID
+python train.py --config_file configs/DukeMTMC/mbf.yml MODEL.DEVICE_ID "('2')"
+# smaller stride
+python train.py --config_file configs/DukeMTMC/mbf_stride.yml MODEL.DEVICE_ID "('2')"
+```
 
 ## Evaluation
 
 ```bash
 # OCC_Duke
-python test.py --config_file configs/OCC_Duke/vit_transreid_stride.yml MODEL.DEVICE_ID "('0')" TEST.WEIGHT '../logs/occ_duke_vit_transreid_stride/transformer_120.pth'
+python test.py --config_file configs/OCC_Duke/mbf.yml
+# OCC_REID
+python test.py --config_file configs/OCC_reid/mbf.yml
+# Market-1501
+python test.py --config_file configs/Market/mbf_stride.yml
+# DukeMTMC-reID
+python test.py --config_file configs/DukeMTMC/mbf_stride.yml
 ```
 
-<!-- ## Experiment results and logs
+## Experiment results
 
-<!-- ![framework](figs/sota.png) -->
+![framework](figs/SOTA.png)
 
-Note: We reorganize code and the performances are slightly different from the paper's. -->
 
 ## Acknowledgement
 

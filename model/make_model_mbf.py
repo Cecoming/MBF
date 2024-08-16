@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .backbones.resnet import ResNet, Bottleneck
 import copy
-from .backbones.vit_pytorch_mfer import vit_base_patch16_224_ETransReID, vit_base_patch16_224_TransReID, vit_small_patch16_224_TransReID, deit_small_patch16_224_TransReID, BlockMask
+from .backbones.vit_pytorch_mbf import vit_base_patch16_224_ETransReID, vit_base_patch16_224_TransReID, vit_small_patch16_224_TransReID, deit_small_patch16_224_TransReID, vit_base_patch16_224_MBF
 from loss.metric_learning import Arcface, Cosface, AMSoftmax, CircleLoss, MArcface
 
 def get_background_features(background_masks, idx, feat_patch, feat_global):
@@ -555,24 +555,8 @@ class build_transformer_local(nn.Module):
         self.bottleneck_4_decoder.bias.requires_grad_(False)
         self.bottleneck_4_decoder.apply(weights_init_kaiming)
 
-        self.bottleneck_re = nn.BatchNorm1d(self.in_planes)
-        self.bottleneck_re.bias.requires_grad_(False)
-        self.bottleneck_re.apply(weights_init_kaiming)
-        self.bottleneck_1_re = nn.BatchNorm1d(self.in_planes)
-        self.bottleneck_1_re.bias.requires_grad_(False)
-        self.bottleneck_1_re.apply(weights_init_kaiming)
-        self.bottleneck_2_re = nn.BatchNorm1d(self.in_planes)
-        self.bottleneck_2_re.bias.requires_grad_(False)
-        self.bottleneck_2_re.apply(weights_init_kaiming)
-        self.bottleneck_3_re = nn.BatchNorm1d(self.in_planes)
-        self.bottleneck_3_re.bias.requires_grad_(False)
-        self.bottleneck_3_re.apply(weights_init_kaiming)
-        self.bottleneck_4_re = nn.BatchNorm1d(self.in_planes)
-        self.bottleneck_4_re.bias.requires_grad_(False)
-        self.bottleneck_4_re.apply(weights_init_kaiming)
 
-    #def forward(self, x, label=None, cam_label= None, keep_rate=None, get_idx=False, f_size=(16, 8), is_occ=True):  # label is unused if self.cos_layer == 'no'
-    def forward(self, x, label=None, cam_label= None, view_label=None, keep_rate=None, get_idx=False, f_size=(16, 8), is_occ=True):  # label is unused if self.cos_layer == 'no'
+    def forward(self, x, label=None, cam_label= None, view_label=None, keep_rate=None, get_idx=False, f_size=(16, 8), is_occ=True):
         global_feat, idx, attn, attns = self.base(x, cam_label=cam_label, view_label=view_label, keep_rate=keep_rate, get_idx=get_idx)
 
         # out_feature: 11th feat, 12th feat
@@ -754,7 +738,7 @@ class build_transformer_local(nn.Module):
 
 
 __factory_T_type = {
-    'vit_base_patch16_224_ETransReID': vit_base_patch16_224_ETransReID,
+    'vit_base_patch16_224_MBF': vit_base_patch16_224_MBF,
     'vit_base_patch16_224_TransReID': vit_base_patch16_224_TransReID,
     'deit_base_patch16_224_TransReID': vit_base_patch16_224_TransReID,
     'vit_small_patch16_224_TransReID': vit_small_patch16_224_TransReID,

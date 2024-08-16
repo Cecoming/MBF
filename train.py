@@ -6,11 +6,11 @@ print('num_gpu:', torch.cuda.device_count())
 
 from utils.logger import setup_logger
 from datasets import make_dataloader
-from MFER.model.make_model_mfer import make_model
+from model.make_model_mbf import make_model
 from solver import make_optimizer
 from solver.scheduler_factory import create_scheduler
 from loss import make_loss
-from MFER.processor.processor_mfer import do_train
+from processor.processor_mbf import do_train
 import random
 import torch
 import numpy as np

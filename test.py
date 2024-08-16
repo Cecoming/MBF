@@ -3,8 +3,8 @@ import os
 from config import cfg
 import argparse
 from datasets import make_dataloader
-from model.make_model_evit import make_model
-from processor.processor_evit_part import do_inference
+from model.make_model_mbf import make_model
+from processor.processor_mbf import do_inference
 from utils.logger import setup_logger
 
 
