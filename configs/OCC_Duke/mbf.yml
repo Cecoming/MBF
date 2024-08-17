@@ -1,6 +1,6 @@
 MODEL:
   PRETRAIN_CHOICE: 'imagenet'
-  PRETRAIN_PATH: '/home/ssy/occluded/weights/jx_vit_base_p16_224-80ecf9dd.pth'
+  PRETRAIN_PATH: '/home/xxx/occluded/weights/jx_vit_base_p16_224-80ecf9dd.pth'
   METRIC_LOSS_TYPE: 'triplet'
   IF_LABELSMOOTH: 'off'
   IF_WITH_CENTER: 'no'
@@ -33,7 +33,7 @@ INPUT:
 
 DATASETS:
   NAMES: ('occ_duke')
-  ROOT_DIR: ('/home/ssy/occluded/datasets')
+  ROOT_DIR: ('/home/xxx/occluded/datasets')
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
@@ -62,8 +62,6 @@ TEST:
   FEAT_NORM: 'yes'
 
 OUTPUT_DIR: './logs/occ_duke_mbf'
-# nohup python train.py --config_file /root/autodl-tmp/transreid_occ-de_occperson/configs/OCC_Duke/evit_sie_extra_part.yml  > log.file 2>&1 &
-# CUDA_VISIBLE_DEVICES=2 python train.py --config_file configs/OCC_Duke/mfer.yml
 
 HUMAN_PARSING:
   IMAGE_SIZE:

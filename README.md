@@ -3,13 +3,13 @@
 
 ## **MBF: Mask-Guided Background Augmentation and Foreground Extraction Network for Occluded Person Re-identification**
 
-Code of paper "Mask-Guided Background Augmentation and Foreground Extraction Network for Occluded Person Re-identification"
+Code of paper "Mask-Guided Background Augmentation and Foreground Extraction Network for Occluded Person Re-identification".
 
 ## Pipeline
 ![framework](figs/MBF_pipeline.png)
-![details in MG](figs/BA.png)
-## Requirements
+![details in MG](figs/BA.png){:height="300px" width="700px"}
 
+## Requirements
 ### Installation
 ```bash
 pip install -r requirement.txt
@@ -22,6 +22,7 @@ mkdir datasets
 ```
 
 Download the person datasets [Market-1501](https://drive.google.com/file/d/0B8-rUzbwVRk0c054eEozWG9COHM/view), [DukeMTMC-reID](https://arxiv.org/abs/1609.01775),[Occluded-Duke](https://github.com/lightas/Occluded-DukeMTMC-Dataset).
+
 Then unzip them and rename them under the directory like
 
 ```
@@ -41,6 +42,7 @@ Then unzip them and rename them under the directory.
 ### Prepare ViT Pre-trained Model and Human Parsing Network Weight
 
 You need to download the ImageNet pretrained transformer model and human parsing model: [pre_weights](https://drive.google.com/drive/folders/1BWx5m0bEf7dFYbk_jUoUBYk-aQ9hsWP1?usp=drive_link)
+
 Then rename their pathes in 'MODEL.PRETRAIN_PATH' and 'HUMAN_PARSING.MODEL_FILE'.
 
 ## Training
@@ -48,7 +50,6 @@ Then rename their pathes in 'MODEL.PRETRAIN_PATH' and 'HUMAN_PARSING.MODEL_FILE'
 We utilize single RTX V100 GPU for training. You can directly train with following  yml and commands:
 
 ```bash
-
 # Training on Occluded-Duke
 python train.py --config_file configs/OCC_Duke/mbf.yml MODEL.DEVICE_ID "('2')"
 # smaller stride
@@ -87,6 +88,10 @@ python test.py --config_file configs/DukeMTMC/mbf_stride.yml
 
 ![framework](figs/SOTA.png)
 
+
+## Visualizations
+We visualize the retrieval ranking lists for two types of occlusions in the Occluded-Duke dataset: (a) pedestrian occlusion and (b) regional occlusion. The above is the result of the TransReID, and below is our method.
+![ranking_list](figs/Retrieval_results.png)
 
 ## Acknowledgement
 

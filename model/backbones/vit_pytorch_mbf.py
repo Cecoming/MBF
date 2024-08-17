@@ -34,7 +34,6 @@ if TORCH_MAJOR == 1 and TORCH_MINOR < 8:
 else:
     import collections.abc as container_abcs
 
-# from .helpers import complement_idx
 
 # From PyTorch internals
 def _ntuple(n):
@@ -122,137 +121,6 @@ default_cfgs = {
     'vit_base_resnet50d_224': _cfg(),
 }
 
-def get_uneffective_patches(batch_idx, f_size):
-    B, N = batch_idx.shape  # 批次大小和每批次的元素数量
-    H, W = f_size     # 图像的高和宽
-    total_patches = H * W  # 总的patch数量
-
-    # 创建一个全范围的patch索引，每个批次中的索引是重复的
-    all_idx = torch.arange(total_patches).repeat(B, 1)
-
-    # 把batch_idx中的每个索引转换为一个独热编码(one-hot encoding)，然后求和以找到重复的部分
-    batch_one_hot = torch.zeros(B, total_patches, dtype=torch.bool)
-    batch_one_hot[torch.arange(B).unsqueeze(-1), batch_idx] = True
-
-    useless_batch_idxs = ~batch_one_hot
-    useless_batch_idxs = all_idx[useless_batch_idxs].view(B, -1)
-    return useless_batch_idxs
-
-def transform_patches(batch_idx, f_size):
-    B, N = batch_idx.shape  # 批次大小和每批次的元素数量
-    H, W = f_size     # 图像的高和宽
-    total_patches = H * W  # 总的patch数量
-
-    # 创建一个全范围的patch索引，每个批次中的索引是重复的
-    all_idx = torch.arange(total_patches).repeat(B, 1)
-
-    # 把batch_idx中的每个索引转换为一个独热编码(one-hot encoding)，然后求和以找到重复的部分
-    batch_one_hot = torch.zeros(B, total_patches, dtype=torch.bool)
-    batch_one_hot[torch.arange(B).unsqueeze(-1), batch_idx] = True
-
-    useless_batch_idxs = ~batch_one_hot
-    useless_batch_idxs = all_idx[useless_batch_idxs].view(B, -1)
-    
-    # 结果列表，每个元素对应批中的替换索引结果
-    results = []
-
-    for b in range(B):
-        idx = useless_batch_idxs[b] # 当前batch的索引
-        
-        # 计算每个patch在H和W上的位置
-        idx_h = idx // W
-        idx_w = idx % W
-
-        # 生成随机区域选择标志
-        r_idx = torch.randint(0, 4, (1,)).item()  # 每个batch随机选择一个区域
-
-        # 初始化新的索引
-        new_idx_h, new_idx_w = idx_h.clone(), idx_w.clone()
-
-        # 生成掩码以确定是否需要替换
-        mask = torch.full((N,), False, dtype=torch.bool)  # 初始化是否需要替换的掩码
-
-        # 根据随机选择的区域进行相应的坐标变换
-        if r_idx == 0:  # 上 -> 下
-            mask = (idx_h < H // 2)
-            new_idx_h[mask] += H // 2
-        elif r_idx == 1:  # 下 -> 上
-            mask = (idx_h >= H // 2)
-            new_idx_h[mask] -= H // 2
-        elif r_idx == 2:  # 左 -> 右
-            mask = (idx_w < W // 2)
-            new_idx_w[mask] += W // 2
-        elif r_idx == 3:  # 右 -> 左
-            mask = (idx_w >= W // 2)
-            new_idx_w[mask] -= W // 2
-
-        # 计算转换后patch的新索引
-        new_idx = new_idx_h * W + new_idx_w
-        old_idx = idx_h * W + idx_w
-
-        # 存储需要替换的位置索引
-        batch_result = (old_idx[mask], new_idx[mask])
-
-        # 添加当前批次处理结果到结果列表
-        results.append(batch_result)
-    
-    # 返回每个批次的结果
-    return results
-
-import numpy as np
-
-def generate_random_masks(batch_size, f_size, min_ratio=0.1, max_ratio=0.3):
-    (height, width) = f_size
-    mask_areas = torch.FloatTensor(batch_size).uniform_(min_ratio, max_ratio) * height * width
-    mask_heights = torch.randint(1, height + 1, (batch_size,))
-    mask_widths = (mask_areas / mask_heights).long()
-    mask_widths = torch.clamp(mask_widths, 1, width)
-    return mask_heights, mask_widths
-
-def apply_patches_and_get_indices(images, patches, masks, f_size):
-    batch_size, _, _ = images.size()
-    (height, width) = f_size
-    patched_images = images.clone()
-    total_patches = height * width  # 总的patch数量
-
-    # 创建一个全范围的patch索引，每个批次中的索引是重复的
-    all_idx = torch.arange(total_patches).repeat(batch_size, 1)
-
-    # 把batch_idx中的每个索引转换为一个独热编码(one-hot encoding)，然后求和以找到重复的部分
-    batch_one_hot = torch.zeros(batch_size, total_patches, dtype=torch.bool)
-    batch_one_hot[torch.arange(batch_size).unsqueeze(-1), patches] = True
-
-    useless_batch_idxs = ~batch_one_hot
-    useless_batch_idxs = all_idx[useless_batch_idxs].view(batch_size, -1)
-    
-    mask_heights, mask_widths = masks
-    mask_heights = mask_heights.cpu().numpy()
-    mask_widths = mask_widths.cpu().numpy()
-    
-    top_positions = [torch.randint(0, height - mh + 1, (1,)).item() for mh in mask_heights]
-    left_positions = [torch.randint(0, width - mw + 1, (1,)).item() for mw in mask_widths]
-
-    # 初始化索引矩阵
-    # index_matrix = torch.zeros(batch_size, masks[0].max() * masks[1].max(), dtype=torch.long)
-    index_matrix = torch.zeros(batch_size, height * width, dtype=torch.long)
-
-    # 生成遮挡区域索引
-    for i in range(batch_size):
-        mask_height, mask_width = masks[0][i], masks[1][i]
-        top, left = top_positions[i], left_positions[i]
-
-        row_indices = torch.arange(top, top + mask_height).view(-1, 1).expand(mask_height, mask_width)
-        col_indices = torch.arange(left, left + mask_width).view(1, -1).expand(mask_height, mask_width)
-        indices = (row_indices * width + col_indices).view(-1)
-
-        # 填充遮挡部分
-        useless_batch_idx = useless_batch_idxs[i, :mask_height * mask_width]
-        patched_images[i, indices] = images[i, useless_batch_idx]
-
-        # 存储索引
-        index_matrix[i, :indices.size(0)] = indices
-
-    return patched_images, index_matrix
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -294,11 +162,11 @@ class Attention(nn.Module):
             keep_rate = self.keep_rate
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv[0], qkv[1], qkv[2]   # make torchscript happy (cannot use tensor as tuple)
+        q, k, v = qkv[0], qkv[1], qkv[2] 
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn) # torch.Size([64, 12, 129, 129])
+        attn = self.attn_drop(attn)
 
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
@@ -308,26 +176,16 @@ class Attention(nn.Module):
         left_tokens = N - 1
         cls_attn = attn[:, :, 0, 1:]  # [B, H, N-1]
         cls_attn = cls_attn.mean(dim=1)  # [B, N-1]
-        #if self.keep_rate < 1 and keep_rate < 1 or tokens is not None:  # double check the keep rate
         if self.keep_rate <= 1 and keep_rate < 1:
             left_tokens = math.ceil(keep_rate * (N - 1))
-            # if tokens is not None:
-            #     left_tokens = tokens
             if left_tokens == N - 1:
                 return x, None, None, None, left_tokens
-            # assert left_tokens >= 1
-            # cls_attn = attn[:, :, 0, 1:]  # [B, H, N-1]
-            # cls_attn = cls_attn.mean(dim=1)  # [B, N-1]
             _, idx = torch.topk(cls_attn, left_tokens, dim=1, largest=True, sorted=True)  # [B, left_tokens]
-            # idx 就是 cls_attn 在第二个维度上的前 left_tokens 个最大值的索引。
-            # cls_idx = torch.zeros(B, 1, dtype=idx.dtype, device=idx.device)
-            # index = torch.cat([cls_idx, idx + 1], dim=1)
             index = idx.unsqueeze(-1).expand(-1, -1, C)  # [B, left_tokens, C]
 
             return x, index, idx, cls_attn, left_tokens
 
         return  x, None, None, cls_attn, left_tokens
-
 
 class Block(nn.Module):
 
@@ -351,28 +209,16 @@ class Block(nn.Module):
         B, N, C = x.shape
 
         # attention
-        tmp, index, idx, cls_attn, left_tokens = self.attn(self.norm1(x), keep_rate)    # [B, N, C]
-        x = x + self.drop_path(tmp) # [B, N, C]?
+        tmp, _, idx, cls_attn, _ = self.attn(self.norm1(x), keep_rate)    # [B, N, C]
+        x = x + self.drop_path(tmp)
 
-        # # 单层，取消删除patch
-        # if index is not None:
-        #     # B, N, C = x.shape
-        #     non_cls = x[:, 1:]
-        #     x_others = torch.gather(non_cls, dim=1, index=index)  # [B, left_tokens, C]:gather 函数，该函数根据提供的索引从输入张量中收集元素。
-        #     x = torch.cat([x[:, 0:1], x_others], dim=1) # shape?
-        
         # mlp
         x = x + self.drop_path(self.mlp(self.norm2(x)))
 
-        # n_tokens 是除了 cls token 外剩余的 token 数量
         n_tokens = x.shape[1] - 1
         if get_idx:
             return x, n_tokens, idx, cls_attn
-            # return x, n_tokens, idx
-        # return x, n_tokens, None, cls_attn
         return x, n_tokens, None
-        # 修改 ！
-
     
 class PatchEmbed(nn.Module):
     """ Image to Patch Embedding
@@ -585,15 +431,6 @@ class TransReID(nn.Module):
         
         x = self.patch_embed(x)
 
-        # if idx_input != None:
-        #     f_size = (16,8)
-        #     # masks = generate_random_masks(x.shape[0], f_size)
-        #     # # 应用遮挡patch并获取索引
-        #     #x, trans_res = apply_patches_and_get_indices(x, idx_input, masks, f_size)
-        #     uneffective_patches = get_uneffective_patches(idx_input, f_size)
-        #     for i in range(0, B):
-        #          x[i,mask[i]]=x[i,uneffective_patches[i]]
-
         cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
         x = torch.cat((cls_tokens, x), dim=1)
 
@@ -614,7 +451,7 @@ class TransReID(nn.Module):
         
         if self.local_feature:
             for i, blk in enumerate(self.blocks):
-                x, left_token, idx, attn = blk(x, keep_rate[i], get_idx)
+                x, _, idx, attn = blk(x, keep_rate[i], get_idx)
                 if idx is not None:
                     left_token_num = idx.shape[-1]
 
@@ -623,32 +460,23 @@ class TransReID(nn.Module):
 
             x = self.norm(x)
             attns = attns[:-1]
-            stacked_attns = torch.stack(attns, dim=0)
-            summed_attns = torch.sum(stacked_attns, dim=0)
             _, idx = torch.topk(attns[-1], left_token_num, dim=1, largest=True, sorted=True)
             idxs.append(idx)
-            return x, idxs, attns[-1], summed_attns
+            return x, idxs
         else:
             for i, blk in enumerate(self.blocks):
-                x, left_token, idx = blk(x, keep_rate[i], get_idx)
-                # left_tokens.append(left_token)
+                x, _, idx = blk(x, keep_rate[i], get_idx)
                 if idx is not None:
                     idxs.append(idx)
             x = self.norm(x)
-            # return x[:, 0], left_tokens, idxs
             return x[:, 0], idxs
 
 
     def forward(self, x, cam_label=None, view_label=None, keep_rate=None,  get_idx=False, other_img=None, other_idx=None):
-    # def forward(self, x, cam_label=None, keep_rate=None,  get_idx=False):
         if keep_rate == None:
             keep_rate = self.keep_rate
-        # if other_img != None:
-        #     x, idxs = self.forward_features(x, cam_label, view_label, keep_rate, get_idx, idx_input, mask)
-        #     return x, idxs, attn, attn_all
-        # else:
-        x, idxs, attn, attn_all = self.forward_features(x, cam_label, view_label, keep_rate, get_idx)
-        return x, idxs, attn, attn_all
+        x, idxs = self.forward_features(x, cam_label, view_label, keep_rate, get_idx)
+        return x, idxs
 
     def load_param(self, model_path):
         param_dict = torch.load(model_path, map_location='cpu')

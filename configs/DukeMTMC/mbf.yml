@@ -1,6 +1,6 @@
 MODEL:
   PRETRAIN_CHOICE: 'imagenet'
-  PRETRAIN_PATH: '/home/ssy/occluded/weights/jx_vit_base_p16_224-80ecf9dd.pth'
+  PRETRAIN_PATH: '/home/xxx/occluded/weights/jx_vit_base_p16_224-80ecf9dd.pth'
   METRIC_LOSS_TYPE: 'triplet'
   IF_LABELSMOOTH: 'off'
   IF_WITH_CENTER: 'no'
@@ -33,7 +33,7 @@ INPUT:
 
 DATASETS:
   NAMES: ('dukemtmc')
-  ROOT_DIR: ('/home/ssy/occluded/datasets')
+  ROOT_DIR: ('/home/xxx/occluded/datasets')
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'
@@ -67,7 +67,7 @@ HUMAN_PARSING:
   IMAGE_SIZE:
   - 128
   - 384
-  MODEL_FILE: '/home/ssy/occluded/weights/Human-Parsing-Network_best.pth'
+  MODEL_FILE: '/home/xxx/occluded/weights/Human-Parsing-Network_best.pth'
   NUM_CLASSES: 10
   EXTRA:
     FINAL_CONV_KERNEL: 1

@@ -92,9 +92,8 @@ def do_train(cfg,
                     idx = h_idxs[0]  # shape: [B, T]
                     mask_ = torch.zeros_like(h_image_part_mask)  # shape: [B, fH, fW]
                     mask_ = mask_.view(mask_.shape[0], -1)  # shape: [B, fH*fW]
-                    mask_.scatter_(1, idx, 1)   # 将掩码中idx索引位置的值设置为1
+                    mask_.scatter_(1, idx, 1) 
                     mask_ = mask_.view(mask_.shape[0], h_image_part_mask.shape[1], h_image_part_mask.shape[2])
-                    # 5. 将image_part_mask与掩码相乘
                     h_image_part_mask = h_image_part_mask * mask_
 
                 loss_seg_h = segment_loss(h_patch_cls_score,  h_image_part_mask) 
@@ -109,13 +108,11 @@ def do_train(cfg,
 
                 image_shape = (img.shape[2], img.shape[3])
                 image_part_mask = segment_model.get_occ_mask(h_image_part_mask, o_mask, image_shape, stride_size)
-                ###将covered_idx指向的位置在image_part_mask置为0
-                # 创建一个与image_part_mask形状相同的全1掩码
                 covered_mask = torch.ones_like(h_image_part_mask)
                 covered_mask = covered_mask.view(covered_mask.shape[0], -1)  # shape: [B, fH*fW]
                 covered_mask.scatter_(1, covered_idx, 0)
                 covered_mask = covered_mask.view(covered_mask.shape[0], h_image_part_mask.shape[1], h_image_part_mask.shape[2])  # shape: [B, fH, fW]
-                # 将image_part_mask中covered_idx指定位置置为0
+
                 image_part_mask = image_part_mask * covered_mask
 
 
@@ -126,11 +123,9 @@ def do_train(cfg,
                     idx = idxs[0]  # shape: [B, T]
                     mask_ = torch.zeros_like(image_part_mask)  # shape: [B, fH, fW]
                     mask_ = mask_.view(mask_.shape[0], -1)  # shape: [B, fH*fW]
-                    mask_.scatter_(1, idx, 1)   # 将掩码中idx索引位置的值设置为1
+                    mask_.scatter_(1, idx, 1)
                     mask_ = mask_.view(mask_.shape[0], image_part_mask.shape[1], image_part_mask.shape[2])
-                    # 5. 将image_part_mask与掩码相乘
                     image_part_mask = image_part_mask * mask_
-
 
                 loss_seg_o = segment_loss(patch_cls_score,  image_part_mask) 
                 loss_reid_o = loss_fn(score, feat, target, target_cam)
@@ -213,7 +208,6 @@ def do_train(cfg,
                 logger.info("mAP: {:.1%}".format(mAP))
                 for r in [1, 5, 10]:
                     logger.info("CMC curve, Rank-{:<3}:{:.1%}".format(r, cmc[r - 1]))
-                logger.info('Best result: {} {:.1%} {:.1%}' .format(top[0], top[1], top[2]))
                 torch.cuda.empty_cache()
 
 

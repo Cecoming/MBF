@@ -8,26 +8,20 @@ from utils.random_erasing import RandomErasing
 from .sampler import RandomIdentitySampler
 from .dukemtmcreid import DukeMTMCreID
 from .market1501 import Market1501
-from .msmt17 import MSMT17
 from .sampler_ddp import RandomIdentitySampler_DDP
 import torch.distributed as dist
 from .occ_duke import OCC_DukeMTMCreID
-from .vehicleid import VehicleID
-from .veri import VeRi
 from .occ_reid import Occluded_REID
 __factory = {
     'market1501': Market1501,
     'dukemtmc': DukeMTMCreID,
-    'msmt17': MSMT17,
     'occ_duke': OCC_DukeMTMCreID,
-    'veri': VeRi,
-    'VehicleID': VehicleID,
     'occ_reid': Occluded_REID,
 }
 
 def train_collate_fn(batch):
     """
-    # collate_fn这个函数的输入就是一个list，list的长度是一个batch size，list中的每个元素都是__getitem__得到的结果
+    # The input to the collate_fn function is a list, where the length of the list is the batch size, and each element in the list is the result obtained from __getitem__.
     """
     imgs_ori, imgs, masks, pids, camids, viewids , _ = zip(*batch)
     pids = torch.tensor(pids, dtype=torch.int64)
@@ -43,19 +37,17 @@ def val_collate_fn(batch):
 
 def make_dataloader(cfg):
     if cfg.DATASETS.NAMES == 'occ_reid':
-        train_transforms_ori = T.Compose([
+        train_transforms = T.Compose([
                         T.Resize(cfg.INPUT.SIZE_TRAIN, interpolation=3),
                         T.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.2, hue=0.2), # Release this part when training for the Occluded-REID
-                        #T.RandomHorizontalFlip(p=cfg.INPUT.PROB),
                         T.Pad(cfg.INPUT.PADDING),
                         T.RandomCrop(cfg.INPUT.SIZE_TRAIN),
                         T.ToTensor(),
                         T.Normalize(mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD)
                     ])
     else:
-        train_transforms_ori = T.Compose([
+        train_transforms = T.Compose([
                         T.Resize(cfg.INPUT.SIZE_TRAIN, interpolation=3),
-                        #T.RandomHorizontalFlip(p=cfg.INPUT.PROB),
                         T.Pad(cfg.INPUT.PADDING),
                         T.RandomCrop(cfg.INPUT.SIZE_TRAIN),
                         T.ToTensor(),
@@ -70,10 +62,9 @@ def make_dataloader(cfg):
     num_workers = cfg.DATALOADER.NUM_WORKERS
 
     dataset = __factory[cfg.DATASETS.NAMES](root=cfg.DATASETS.ROOT_DIR)
-    f_size = ((cfg.INPUT.SIZE_TRAIN[0]-16)//cfg.MODEL.STRIDE_SIZE[0]+1, (cfg.INPUT.SIZE_TRAIN[1]-16)//cfg.MODEL.STRIDE_SIZE[1]+1)
 
     train_transforms_erasing = RandomErasing(probability=cfg.INPUT.RE_PROB, mode='pixel', max_count=1, device='cpu')
-    train_set = ImageDatasetWithOriAndMask(dataset.train, transform_ori=train_transforms_ori, transform=train_transforms_erasing)
+    train_set = ImageDatasetWithOriAndMask(dataset.train, transform_ori=train_transforms, transform=train_transforms_erasing)
     train_set_normal = ImageDataset(dataset.train, val_transforms)
     num_classes = dataset.num_train_pids
     cam_num = dataset.num_train_cams
