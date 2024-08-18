@@ -8,8 +8,8 @@ def euclidean_distance(qf, gf):
     m = qf.shape[0]
     n = gf.shape[0]
     dist_mat = torch.pow(qf, 2).sum(dim=1, keepdim=True).expand(m, n) + \
-               torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()   # 两个矩阵的平方和[2210, 17661]
-    dist_mat.addmm_(1, -2, qf, gf.t())  # 矩阵乘法
+               torch.pow(gf, 2).sum(dim=1, keepdim=True).expand(n, m).t()
+    dist_mat.addmm_(1, -2, qf, gf.t())
     return dist_mat.cpu().numpy()
 
 def cosine_similarity(qf, gf):
