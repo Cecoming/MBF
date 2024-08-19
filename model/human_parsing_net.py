@@ -154,13 +154,11 @@ class HumanParsingNet():
             preds = preds.cpu().numpy()  # (b, 10, 285, 113)
             # numpy_time = time.time()
 
-            for i in range(preds.shape[0]): # 遍历batch中每一张图片
-                preds[i] = self.largest_connect_component(preds[i]) # 保留最大的连通区域
-                preds[i] = self.combine_label(preds[i])             # 合并某些类别的标签
-                # pred = self.remove_small_area(preds[i])         # 移除面积小于一定阈值的区域。
-                # pred = self.remove_duplicate_area(preds[i])     # 移除重复区域
-                preds[i] = self.remove_small_area(preds[i])         # 移除面积小于一定阈值的区域。
-                preds[i] = self.remove_duplicate_area(preds[i])     # 移除重复区域
+            for i in range(preds.shape[0]):
+                preds[i] = self.largest_connect_component(preds[i])
+                preds[i] = self.combine_label(preds[i])           
+                preds[i] = self.remove_small_area(preds[i])    
+                preds[i] = self.remove_duplicate_area(preds[i])   
 
             return preds
     
@@ -169,21 +167,17 @@ class HumanParsingNet():
         batch_size, height, width = image.size()
         kernel_size = 16
 
-        # 计算经过卷积操作后特征图的大小
         output_height = (height - kernel_size) // stride + 1
         output_width = (width - kernel_size) // stride + 1
 
-        # unfold操作
         patches = image.unfold(1, kernel_size, stride).unfold(2, kernel_size, stride)
         patches = patches.contiguous().view(batch_size, output_height, output_width, -1)  # [B, OH, OW, K*K]
 
-        # 创建存储每个part的计数
         counts = torch.zeros(batch_size, output_height, output_width, num_parts + 1, device=image.device)
 
         for part in range(num_parts + 1):
             counts[..., part] = (patches == part).sum(dim=-1)
 
-        # 获取每个区域出现次数最多的部位数字
         output_tensor = counts.argmax(dim=-1)
 
         return output_tensor
@@ -193,7 +187,6 @@ class HumanParsingNet():
         (H, W) = image_shape
         b, fh, fw = h_image_part_mask.shape
 
-        # 初始化occ_mask为原始的h_image_part_mask
         occ_mask = h_image_part_mask.clone()
 
         for i in range(b):
@@ -202,21 +195,16 @@ class HumanParsingNet():
                 continue
             
             top, left, mask_h, mask_w = mask
-            # 生成一个全零矩阵，用于记录每个位置是否在mask区域
             mask_matrix = torch.zeros((H, W), dtype=torch.uint8, device=h_image_part_mask.device)
             mask_matrix[top:top + mask_h, left:left + mask_w] = 1
             
-            # 用unfold将原图的mask展开为卷积块
             unfolded_mask = mask_matrix.unfold(0, kernel_size, stride_size).unfold(1, kernel_size, stride_size)
             
-            # 计算每个卷积块中mask的占比
             mask_counts = unfolded_mask.sum(dim=(-1, -2))
             mask_ratios = mask_counts / (kernel_size * kernel_size)
 
-            # 确保mask_ratios和occ_mask[i]的尺寸匹配
             mask_ratios = mask_ratios[:fh, :fw]
             
-            # 将占比大于70%的位置设为0
             occ_mask[i] = torch.where(mask_ratios > 0.7, torch.tensor(0, dtype=occ_mask.dtype, device=occ_mask.device), occ_mask[i])
         return occ_mask
 
