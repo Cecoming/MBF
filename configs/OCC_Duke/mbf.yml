@@ -67,7 +67,7 @@ HUMAN_PARSING:
   IMAGE_SIZE:
   - 128
   - 384
-  MODEL_FILE: '/home/ssy/occluded/weights/Human-Parsing-Network_best.pth'
+  MODEL_FILE: '/home/xxx/occluded/weights/Human-Parsing-Network_best.pth'
   NUM_CLASSES: 10
   EXTRA:
     FINAL_CONV_KERNEL: 1
