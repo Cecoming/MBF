@@ -7,7 +7,6 @@ Code of paper "Mask-Guided Background Augmentation and Foreground Extraction Net
 
 ## Pipeline
 ![framework](figs/MBF_pipeline.png)
-![details in MG](figs/BA.png)
 
 ## Requirements
 ### Installation
